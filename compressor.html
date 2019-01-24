@@ -1,0 +1,416 @@
+<script>
+    
+    
+    
+let bitstream = function(buffer) {
+   
+  this.buffer = new Uint8Array(buffer);
+  
+  this.bytenum = 0;
+  this.bitpos = 7;
+    
+  this.write = function(bit) {
+      
+    //Set the bit to zero if not already
+    //Note: See if you can use a XOR instead to reduce this to a single operation. I don't think so.
+
+    this.buffer[this.bytenum] -= this.buffer[this.bytenum] & (1<<this.bitpos);
+    this.buffer[this.bytenum] += bit<<this.bitpos;
+   
+    this.bitpos--
+    if (this.bitpos < 0) {
+      this.bytenum++;
+      this.bitpos = 7;
+    }
+        
+    return;
+  }
+  
+  
+  this.read = function() {
+    
+    let res = this.buffer[this.bytenum] & (1<<this.bitpos);
+    
+    this.bitpos--
+    if (this.bitpos < 0) {
+      this.bytenum++;
+      this.bitpos = 7;
+    }
+    
+    if (res) {
+      return 1;
+    }
+    return 0;
+  }
+  
+  
+  this.writepos = function(bit, bytenum, bitpos) {
+    
+    this.buffer[bytenum] -= this.buffer[bytenun] & (1<<bitpos);
+    this.buffer[bytenum] += bit<<bitpos;
+    
+    return;
+  }
+  
+  
+  this.readpos = function(bytenum, bitpos) {
+    if (this.buffer[bytenum] & (1<<bitpos)) {
+      return 1;
+    }
+    return 0;
+  }  
+}
+
+
+
+
+
+
+
+
+
+
+
+  
+    
+let lzw = function() {
+    
+    this.compressor = function() {
+        
+        function lzwcompressor() {
+            this.dict = {}
+            this.size = 256
+            
+            for (let i=0;i<256;i++) {
+              this.dict[String.fromCharCode(i)] = i
+            }            
+            this.res = []    
+
+            
+            
+            this.add = function(arr) {
+                
+                let pos = 0
+                
+                if (!this.p) {
+                    this.p = String.fromCharCode(arr[0])
+                    pos++
+                }
+                
+                for (;pos< arr.length;pos++) {
+                  this.c = String.fromCharCode(arr[pos])
+
+                  this.pc = this.p+this.c
+
+                  if (this.dict[this.pc] !== undefined) {
+                    this.p = this.pc
+                  }
+                  else {
+                    this.res.push(this.dict[this.p])
+                    this.dict[this.pc] = this.size++
+                    this.p = this.c
+                  }
+                }
+            }
+            
+            this.finish = function() {
+                this.res.push(this.dict[this.p])
+                return this.res
+            }
+        }
+        return new lzwcompressor
+    }
+    
+    
+    this.decompressor  = function() {
+        
+        
+        function lzwdecompressor() {
+            this.dict = []
+            this.size = 256
+            
+            for (let i = 0; i < 256; i++) {
+                this.dict[i] = String.fromCharCode(i)
+            }
+            
+            
+            this.add = function(arr) {
+                
+                let pos = 0
+                
+                if (!this.word) {
+                    this.word = this.dict[arr[0]]
+                    this.res = this.word
+                    pos++
+                }
+                
+                for (;pos < arr.length;pos++) {
+                    //Get the translation of next code
+                    this.current = this.dict[arr[pos]]
+                    if (!this.current) {
+                        if (arr[pos] === this.size) {
+                            this.current = this.word + this.word[0]
+                        }
+                        else {
+                            throw "Malformed Data"
+                        }
+                    }
+                    
+                    this.res += this.current
+                    this.dict[this.size++] = this.word + this.current[0]
+                    this.word = this.current
+                }
+            }   
+        }
+        return new lzwdecompressor
+    }
+    
+    
+    //Encode and decode should be made to stream
+    
+    this.encode = function(content, mode) {
+        if (mode === "wordbits") {
+            
+            //Calculate needed bytes
+            
+            if (content.length === 0) {
+                return new Uint8Array(0)
+            }
+            if (content.length === 1) {
+                return new Uint8Array([content[0]])
+            }
+            
+            
+            
+            let block = 1
+            let wordbits = 8
+            let needed = 0
+            let remaining = content.length
+            
+            while (remaining > 0) {
+                needed += wordbits*(Math.min(remaining, block))
+                remaining -= Math.min(remaining, block)
+                
+                wordbits ++
+                block = 2**(wordbits-1)
+                
+            }
+            
+            needed = Math.ceil(needed/8) //Get bytes
+            console.log(needed)
+            //We've now calculated how many bytes we need to encode the data
+            
+            
+            let buffer = new ArrayBuffer(needed)
+            let stream = new bitstream(buffer)
+            
+            
+            
+            function getbits(value, count) {
+                let arr = []
+                count -= 1 //Count goes down to zero
+                for (;count >= 0;count--) {
+                    if (value & (2**count)) {
+                        arr.push(1)
+                    }
+                    else {
+                        arr.push(0)
+                    }
+                }
+                return arr
+            }
+            
+            
+            
+            let bits = 8
+            let max = 2**bits
+            
+            for (let i=0;i<content.length;i++) {
+                //Dictionary size begins at 256
+                if (i+256 > max) {
+                    bits ++
+                    max *= 2
+                }
+                
+                
+                let value = getbits(content[i], bits)                
+                
+                for (let i=0;i<value.length;i++) {
+                    stream.write(value[i])
+                }
+                
+            }
+            
+            
+            window.stream = stream
+            return stream.buffer
+            
+        }
+        else if (mode === "modulo") {
+            throw "Unfinished"
+        }
+        else {
+            throw "Unknown Mode"
+        }
+    }
+    
+    
+    
+    this.decode = function(content, mode) {
+        if (mode === "wordbits") {
+        
+            let output = []
+            
+            let stream = new bitstream(content)
+           
+            let bits = content.length * 8
+            
+            let position = 0
+            
+            let wordbits = 8
+            let size = 256
+
+            function frombits(arr) {
+                let num = 0
+                for (let i=0;i<arr.length;i++) {
+                    num += arr[i] * (2**(arr.length-1-i))
+                }
+                return num
+            }
+            
+            let count = 0
+            
+            while (position+8 <= bits) {
+                
+                let arr = []
+                for (let i=0;i<wordbits;i++) {
+                    arr.push(stream.read())
+                }
+                
+                output.push(frombits(arr))
+                
+                
+                position += wordbits
+                
+                count++
+                //Dictionary size starts at 256
+                if (count+256 > size) {
+                    wordbits++
+                    size *= 2
+                }
+            }
+            
+            return output
+            
+            
+            
+        }
+        else if (mode === "modulo") {
+            throw "Unfinished"
+        }
+        else {
+            throw "Unknown Mode"
+        }
+    }
+    
+    //This function should only be called to convert the string output by the decompressor to an ArrayBuffer
+    //It should probably be moved to inside the decompressor object
+    this.stringtobuffer = function(str) {
+        let buffer = new Uint8Array(str.length)
+        for (let i=0;i<str.length;i++) {
+            buffer[i] = str.charCodeAt(i)
+        }
+        return buffer
+    }
+    
+    
+} 
+
+
+
+
+
+
+
+
+function download(content, name, mimetype) {
+    
+        var link = document.createElement("a");
+        document.body.appendChild(link);
+
+        content = new Blob([content], {type:mimetype})
+        link.download = name
+        link.href = URL.createObjectURL(content);
+        link.click();
+
+        document.body.removeChild(link);
+
+
+
+}
+
+
+
+
+   
+  
+  
+
+
+
+
+;(async function() {
+    let compressor = new lzw().compressor()
+    
+    let response = await fetch("http://127.0.0.1:9999/enwik44MB")
+    let stream = response.body
+    let reader = stream.getReader()
+    
+    let bytesreceived = 0
+    
+    function loaded() {
+        window.compressed = compressor.res
+        console.log(compressed)
+        
+        window.encoded = new lzw().encode(compressor.res, "wordbits")
+        console.log(encoded)
+        
+        download(encoded, "file.tz", "application/tucker-compressed-file")
+        
+        window.decoded = new lzw().decode(encoded, "wordbits")
+        console.log(decoded)
+        
+        window.decompressed = new lzw().decompressor()
+        decompressed.add(decoded)
+        decompressed = decompressed.res
+        console.log(decompressed)
+        
+        window.end = new lzw().stringtobuffer(decompressed)
+        console.log(end)
+        
+    }
+    
+    
+    reader.read().then(function nextchars({done,value}) {
+        //Make this go faster. Only use first characters
+        if (done) {
+            compressor.finish()
+            console.log(compressor)
+            loaded()
+            return;
+        }
+    
+        
+        bytesreceived += value.length
+        console.log(bytesreceived)
+        compressor.add(value)
+
+        return reader.read().then(nextchars)
+    })
+    
+
+
+}()) 
+    
+    
+</script>

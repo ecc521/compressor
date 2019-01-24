@@ -1,0 +1,183 @@
+
+<script>
+let bitstream = function(buffer) {
+   
+  this.buffer = new Uint8Array(buffer);
+  
+  this.bytenum = 0;
+  this.bitpos = 7;
+    
+  this.write = function(bit) {
+      
+    //Set the bit to zero if not already
+    //Note: See if you can use a XOR instead to reduce this to a single operation. I don't think so.
+
+    this.buffer[this.bytenum] -= this.buffer[this.bytenum] & (1<<this.bitpos);
+    this.buffer[this.bytenum] += bit<<this.bitpos;
+   
+    this.bitpos--
+    if (this.bitpos < 0) {
+      this.bytenum++;
+      this.bitpos = 7;
+    }
+        
+    return;
+  }
+  
+  
+  this.read = function() {
+    
+    let res = this.buffer[this.bytenum] & (1<<this.bitpos);
+    
+    this.bitpos--
+    if (this.bitpos < 0) {
+      this.bytenum++;
+      this.bitpos = 7;
+    }
+    return res;
+  }
+  
+  
+  this.writepos = function(bit, bytenum, bitpos) {
+    
+    this.buffer[bytenum] -= this.buffer[bytenun] & (1<<bitpos);
+    this.buffer[bytenum] += bit<<bitpos;
+    
+    return;
+  }
+  
+  
+  this.readpos = function(bytenum, bitpos) {
+    return this.buffer[bytenum] & (1<<bitpos);
+  }  
+}
+</script>
+
+
+
+
+<script>
+
+  
+
+   
+  let compress = function(arr) {
+    
+    let dict = {}
+    let size = 256    
+    
+    for (let i=0;i<256;i++) {
+      dict[String.fromCharCode(i)] = i
+    }
+    
+    
+    let res = []
+    
+    
+    let p = String.fromCharCode(arr[0])
+    
+    for (let pos = 1;pos< arr.length;pos++) {
+      c = String.fromCharCode(arr[pos])
+      
+      let pc = p+c
+      
+      if (dict[pc] !== undefined) {
+        p = pc
+      }
+      else {
+        res.push(dict[p])
+        dict[pc] = size++
+        p = c
+      }
+    }
+    
+    res.push(dict[p])
+    return res
+  }
+
+
+
+
+  
+  let decompress = function(arr) {
+        
+        let dict = []
+        for (let i = 0; i < 256; i++) {
+            dict[i] = String.fromCharCode(i)
+        }   
+    
+        let w
+        let res
+        let c
+        let add = ""
+        let size = 256
+ 
+        w = dict[arr[0]];
+        res = w
+    
+        for (i = 1; i < arr.length; i++) {
+          c = dict[arr[i]]
+          if (c) {
+            add = c
+          } 
+          else {
+            if (arr[i] === size) {
+              add = w + w[0]
+            } 
+            else {
+              throw "Malformed Data. The dictionary size attempted to increase by " + (arr[i] - size)
+            }
+          }
+ 
+          res += add
+          dict[size++] = w + add[0] 
+          w = add
+      }
+      return res
+    }
+  
+  
+ 
+  
+  //let stringdata = ""
+  //stringdata = "random string of text for testing. does it run more effeciently with lower compression ratios (longer text strings)".repeat(100000)
+;(async function() {  
+    
+    
+  //It looks like whenever the length of the input is quadrupled, time needed goes up by 8
+    
+    
+    
+    
+    
+  let resp = await fetch("http://127.0.0.1:9999/enwik8")
+  let stringdata = await resp.text()
+  //let stringdata = "a".repeat(4*2**20)
+  
+  
+  let encoder = new TextEncoder()
+  let data = encoder.encode(stringdata)
+    
+  console.log(data.length)
+  console.log(stringdata.length)
+  
+  
+  console.time("comp")
+  let comp = compress(data)
+  console.timeEnd("comp")
+   
+  
+  
+  console.log(comp)
+   
+  
+  
+  console.time("decomp")
+  let decomp = decompress(comp)
+  console.timeEnd("decomp")
+  
+  console.log(decomp) 
+  
+  
+}())
+  </script>
