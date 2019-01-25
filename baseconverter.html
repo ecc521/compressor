@@ -1,0 +1,94 @@
+<script>
+
+   
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+function getbits(value, count) {
+    let arr = []
+    count -= 1 //Count goes down to zero
+    for (;count >= 0;count--) {
+        if (value & (2**count)) {
+            arr.push(1)
+        }
+        else {
+            arr.push(0)
+        }
+    }
+    return arr
+}
+    
+function frombits(arr) {
+    let num = 0
+    for (let i=0;i<arr.length;i++) {
+        num += arr[i] * (2**(arr.length-1-i))
+    }
+    return num
+}
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+function tobase(value, base) {
+    
+    let arr = []
+    let val;
+    
+    while (value >= 1) {
+    val = value%base;
+    arr.push(val);
+    value -= val;
+    value /= base;
+    }
+    
+    //Most significant digits first
+    return arr.reverse();
+}
+    
+function frombase(arr, base) {
+    var res = 0;
+    
+    for (var i=0;i<arr.length;i++) {
+        res += arr[arr.length-i-1]*base**i;
+    }
+    
+    return res;
+}
+    
+    
+    
+    
+    
+    
+    
+let test = [322,123,53,23,64,62]
+let base = 384 //One more than maximum possible number
+let res = 0
+for (let i=0;i<test.length;i++) {
+    res += test[i] * (base ** i)
+}
+    
+console.log(tobase(res, base))
+console.log(Math.log2(base)*test.length)
+console.log(Math.ceil(Math.log2(base))*test.length)
+console.log(test)
+    
+    
+</script>
