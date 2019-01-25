@@ -1,0 +1,88 @@
+<script src="/bitstream.js"></script>
+<script src="/lzw.js"></script>
+
+
+<script>
+
+
+
+/*let stream = new bitstream(4)
+
+for (let i=0;i<1000;i++) {
+    stream.writebit(Math.round(Math.random()))
+}
+
+stream.trim()
+
+
+
+let compressor = new lzwcompressor()
+let decompressor = new lzwdecompressor()
+
+console.log(decompressor.add(compressor.add(stream.buffer)))
+console.log(decompressor.add(compressor.finish()))*/
+	
+	
+	
+function download(contentarray, name, mimetype) {
+    
+        var link = document.createElement("a");
+        document.body.appendChild(link);
+
+        content = new Blob(contentarray, {type:mimetype})
+        link.download = name
+        link.href = URL.createObjectURL(content);
+        link.click();
+
+        document.body.removeChild(link);
+}
+	
+	
+	
+	
+;(async function() {
+    let compressor = new lzwcompressor()
+    let encoder = new lzwwordbitencoder()
+	
+    let response = await fetch("/enwik44MB.txt")
+    let stream = response.body
+    let reader = stream.getReader()
+    
+    let bytesreceived = 0
+	let start = Date.now()
+	
+    function loaded() {
+        download(window.parts, "enwik44MB.tz", "application/tzip-compressed-file")
+    }
+    
+    window.parts = []
+	
+    reader.read().then(function nextchars({done,value}) {
+        //Make this go faster. Only use first characters
+        if (done) {
+            reader.cancel("Stream has served it's purpose")
+            loaded()
+            return;
+        }
+
+       	bytesreceived += value.length
+		console.log(bytesreceived + " bytes compressed in " + (Date.now() - start) + " milliseconds, or " + Math.round((bytesreceived/1024)/((Date.now() - start)/1000)) + " kilobytes per second")
+		
+		let begin = Date.now()
+		window.parts.push(encoder.add(compressor.add(value)).buffer)
+		let time = Date.now() - begin
+		console.log("Took " + time + " milliseconds to compress and encode " + value.length + " bytes")
+        return reader.read().then(nextchars)
+    })
+    
+
+
+}())
+	
+	
+	
+
+
+
+
+</script>

@@ -1,0 +1,113 @@
+<script src="/bitstream.js"></script>
+<script src="/lzw.js"></script>
+
+
+<script>
+
+
+
+/*let stream = new bitstream(4)
+
+for (let i=0;i<1000;i++) {
+    stream.writebit(Math.round(Math.random()))
+}
+
+stream.trim()
+
+
+
+let compressor = new lzwcompressor()
+let decompressor = new lzwdecompressor()
+
+console.log(decompressor.add(compressor.add(stream.buffer)))
+console.log(decompressor.add(compressor.finish()))*/
+	
+	
+	
+function download(contentarray, name, mimetype) {
+    
+        var link = document.createElement("a");
+        document.body.appendChild(link);
+
+        content = new Blob(contentarray, {type:mimetype})
+        link.download = name
+        link.href = URL.createObjectURL(content);
+        link.click();
+
+        document.body.removeChild(link);
+}
+	
+	
+	
+	
+    
+    
+let compressor1 = new lzwcompressor() 
+let compressor2 = new lzwcompressor()  
+let encoder = new lzwwordbitencoder()
+let decompressor = new lzwdecompressor()
+let decoder = new lzwwordbitdecoder()
+
+
+let decomp = []
+let comp = []
+
+let arr = new Uint8Array([12,12,12,12,12,12,12,12])
+
+comp.push(compressor1.add(arr))
+comp.push(compressor1.finish())
+    
+decomp.push(decompressor.add(compressor2.add(arr)))
+decomp.push(decompressor.add(compressor2.finish()))
+
+console.log(comp)
+console.log(decomp)
+    
+;(async function() {
+    let decompressor = new lzwdecompressor()
+    let decoder = new lzwwordbitdecoder()
+	
+    let response = await fetch("/partialenwik8.tz")
+    let stream = response.body
+    let reader = stream.getReader()
+    
+    let bytesreceived = 0
+	let start = Date.now()
+	
+    function loaded() {
+        download(window.parts, "enwik44MB.txt", "text/plain")
+    }
+    
+    window.parts = []
+	
+    reader.read().then(function nextchars({done,value}) {
+        //Make this go faster. Only use first characters
+        if (done) {
+            reader.cancel("Stream has served it's purpose")
+            loaded()
+            return;
+        }
+        
+        console.log(value)
+
+       	bytesreceived += value.length
+		console.log(bytesreceived + " bytes decompressed in " + (Date.now() - start) + " milliseconds, or " + Math.round((bytesreceived/1024)/((Date.now() - start)/1000)) + " kilobytes per second")
+		
+		let begin = Date.now()
+		window.parts.push(decompressor.add(decoder.add(value)).buffer)
+		let time = Date.now() - begin
+		console.log("Took " + time + " milliseconds to decode and decompress " + value.length + " bytes")
+        return reader.read().then(nextchars)
+    })
+    
+
+
+}())
+	
+	
+	
+
+
+
+
+</script>
